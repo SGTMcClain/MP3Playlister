@@ -2,7 +2,6 @@ package com.sgtmcclain;
 
 import org.jaudiotagger.audio.AudioFile;
 import org.jaudiotagger.audio.AudioFileIO;
-import org.jaudiotagger.audio.AudioHeader;
 import org.jaudiotagger.audio.exceptions.CannotReadException;
 import org.jaudiotagger.audio.exceptions.InvalidAudioFrameException;
 import org.jaudiotagger.audio.exceptions.ReadOnlyFileException;
@@ -12,14 +11,12 @@ import org.jaudiotagger.tag.TagException;
 
 import javax.swing.text.DateFormatter;
 import java.io.File;
-
 import java.io.IOException;
 import java.text.DateFormat;
-import java.util.*;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.Locale;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class MusicScanner {
 
@@ -42,118 +39,13 @@ public class MusicScanner {
 
         // Parse the filesystem to find all audio files and place them into a blocking Queue
         listAudioFiles(new File("E:\\Music"), fileArrayList);
-        //Create Blocking Queue to store files in
-        BlockingQueue<File> blockingQueue = new ArrayBlockingQueue<File>(fileArrayList.size()) {
-            public boolean add(File file) {
-                return false;
-            }
 
-            public boolean offer(File file) {
-                return false;
-            }
-
-            public void put(File file) throws InterruptedException {
-
-            }
-
-            public boolean offer(File file, long timeout, TimeUnit unit) throws InterruptedException {
-                return false;
-            }
-
-            public File take() throws InterruptedException {
-                return null;
-            }
-
-            public File poll(long timeout, TimeUnit unit) throws InterruptedException {
-                return null;
-            }
-
-            public int remainingCapacity() {
-                return 0;
-            }
-
-            public boolean remove(Object o) {
-                return false;
-            }
-
-            public boolean contains(Object o) {
-                return false;
-            }
-
-            public int drainTo(Collection<? super File> c) {
-                return 0;
-            }
-
-            public int drainTo(Collection<? super File> c, int maxElements) {
-                return 0;
-            }
-
-            public File remove() {
-                return null;
-            }
-
-            public File poll() {
-                return null;
-            }
-
-            public File element() {
-                return null;
-            }
-
-            public File peek() {
-                return null;
-            }
-
-            public int size() {
-                return 0;
-            }
-
-            public boolean isEmpty() {
-                return false;
-            }
-
-            public Iterator<File> iterator() {
-                return null;
-            }
-
-            public Object[] toArray() {
-                return new Object[0];
-            }
-
-            public <T> T[] toArray(T[] a) {
-                return null;
-            }
-
-            public boolean containsAll(Collection<?> c) {
-                return false;
-            }
-
-            public boolean addAll(Collection<? extends File> c) {
-                return false;
-            }
-
-            public boolean removeAll(Collection<?> c) {
-                return false;
-            }
-
-            public boolean retainAll(Collection<?> c) {
-                return false;
-            }
-
-            public void clear() {
-
-            }
-        };
+        ConcurrentLinkedQueue<File> queue = new ConcurrentLinkedQueue<File>();
 
         System.out.println("File ArraylistSize = " + fileArrayList.size());
-        System.out.println("Did the blocking queue get anything: " + blockingQueue.addAll(fileArrayList));
+        System.out.println("Did the blocking queue get anything: " + queue.addAll(fileArrayList));
 
-        System.out.println("Queue size: " + blockingQueue.size() + " " + blockingQueue.remainingCapacity());
-
-        for (File file : fileArrayList){
-                blockingQueue.offer(file);
-        }
-        System.out.println("Queue size after put loop: " + blockingQueue.size());
+        System.out.println("Queue size after put loop: " + queue.size());
 
 
         // Mark the start time
@@ -161,7 +53,15 @@ public class MusicScanner {
         timeStart = timeFormatter.format(startTime);
 
         //Get the Songs and display the titles and Artists
-        //getSongs(blockingQueue);
+        //getSongs(queue);
+        MultiThreader getMusicThread = new MultiThreader(queue);
+        MultiThreader getMusicThread2 = new MultiThreader(queue);
+        MultiThreader getMusicThread3 = new MultiThreader(queue);
+
+        getMusicThread.run();
+        getMusicThread2.run();
+        getMusicThread3.run();
+
 
         //Mark the end time
         endTime = new Date();
@@ -176,16 +76,15 @@ public class MusicScanner {
 
     // Worker Functions
 
-    public static void getSongs(BlockingQueue<File> blockingQueue){
+    public static void getSongs(ConcurrentLinkedQueue<File> queue){
         int count = 1;
         do {
             try {
-                File file = blockingQueue.take();
+                File file = queue.poll();
                 AudioFile audioFile = AudioFileIO.read(file);
                 Tag tag = audioFile.getTag();
 
-
-                System.out.printf("--------------------------------------------\n %s %s \n--------------------------------------------\n", file.getPath());
+                System.out.printf("--------------------------------------------\n %s %s \n--------------------------------------------\n", count, file.getPath());
                 String songTitle = tag.getFirst(FieldKey.TITLE);
                 String songArtist = tag.getFirst(FieldKey.ARTIST);
 
@@ -203,10 +102,8 @@ public class MusicScanner {
                 e.printStackTrace();
             } catch (InvalidAudioFrameException e) {
                 e.printStackTrace();
-            } catch (InterruptedException e) {
-                e.printStackTrace();
             }
-        } while (!blockingQueue.isEmpty());
+        } while (!queue.isEmpty());
 
     }
 
